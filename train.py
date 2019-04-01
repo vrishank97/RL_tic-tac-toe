@@ -52,6 +52,7 @@ class DQN(nn.Module):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.fc2(x)
+        return x
 
 class Agent(object):
     """docstring for Agent"""
@@ -69,7 +70,7 @@ class Agent(object):
         self.EPS_DECAY = 1000
         
     def select_action(self, state, valid_actions):
-        print(self.policy_net(state))
+        valid_actions = torch.tensor([1*valid_actions], device=device, dtype=torch.float32)
         global steps_done
         sample = random.random()
         eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * \
@@ -77,27 +78,29 @@ class Agent(object):
         self.steps_done += 1
         if sample > eps_threshold:
             with torch.no_grad():
-                return self.policy_net(state).max(1)[1].view(1, 1)
+                action = self.policy_net(state)*valid_actions
+                return action.max(1)[1].view(1, 1)
         else:
-            return torch.tensor([[random.randrange(9)]], device=device, dtype=torch.long)
+            random_act = torch.tensor(np.random.rand(9), device=device, dtype=torch.float32)
+            random_act = random_act*valid_actions
+            return random_act.max(1)[1].view(1, 1)
 
     def optimize_model(self):
         if len(self.memory) < BATCH_SIZE:
             return
         transitions = self.memory.sample(BATCH_SIZE)
         batch = Transition(*zip(*transitions))
-        #print(batch.next_state[0])
-
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                               batch.next_state)), device=device, dtype=torch.uint8)
+        # print([batch.next_state])
         non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
-
+        print("Starting actual training")
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
         next_state_values = torch.zeros(BATCH_SIZE, device=device)
-        next_state_values[non_final_mask] = policy_net(non_final_next_states).max(1)[0].detach()
+        next_state_values[non_final_mask] = self.policy_net(non_final_next_states).max(1)[0].detach()
         #print(next_state_values)
         reward_batch = torch.tensor(reward_batch, dtype=torch.float32)
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
@@ -119,13 +122,19 @@ for i in range(num_episodes):
     state = env.reset()
     for step in range(5):
         valid_actions = env.show_valid()
+        state = state.ravel()
+        state = torch.tensor([state], device=device, dtype=torch.float32)
         action = player1.select_action(state, valid_actions)
         next_state, reward, done, info = env.step1(action)
         if reward is 1:
             print("Player1 wins match {}".format(i))
         reward = torch.tensor([reward], device=device)
+        next_state = next_state.ravel()
         if done:
             next_state = None
+        else:
+            next_state = next_state.ravel()
+            next_state = torch.tensor([next_state], device=device, dtype=torch.float32)
         player1.memory.push(state, action, next_state, reward)
         state = next_state
 
@@ -135,11 +144,13 @@ for i in range(num_episodes):
             break
 
         valid_actions = env.show_valid()
+        state = state.view(-1)
         action = player2.select_action(state, valid_actions)
         next_state, reward, done, info = env.step2(action)
         if reward is 1:
             print("Player2 wins match {}".format(i))
         reward = torch.tensor([reward], device=device)
+        next_state = next_state.ravel()
         if done:
             next_state = None
         player2.memory.push(state, action, next_state, reward)
@@ -149,6 +160,6 @@ for i in range(num_episodes):
             if reward is 0:
                 print("Match {} is a draw".format(i))
             break
-
+    print("Optimizing")
     player1.optimize_model()
     player2.optimize_model()

@@ -12,6 +12,7 @@ class Board:
     def reset(self):
         self.board = self.create_board()
         self.done = False
+        return self.board
 
     def show_valid(self):
         return np.ravel(self.board) == 0
