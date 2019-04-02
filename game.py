@@ -72,20 +72,29 @@ class Board:
         return winner
 
     def step1(self, action):
+        flag2 = 0
         if not self.done:
             if(self.show_valid()[action]): 
                 self.board[action//3][action%3]=-1
             else:
-                print("Invalid Move")
+                # print("Invalid Move by player 1 - {}".format(action))
+                # print(self.board)
+                for i in range(9):
+                    if self.show_valid()[i]:
+                        flag2=1
+                        # print("Valid move was {}".format(i))
+                        self.board[i//3][i%3]=-1
+                    break
+
 
         state = self.evaluate()
         if state is 0:
             reward = 0
             self.done = False
-        elif state is -1:
+        if state is -1:
             reward = 1
             self.done = True
-        else:
+        if state is -1:
             reward = -1
             self.done = True
         info = None
@@ -98,24 +107,34 @@ class Board:
             if flag == 0:
                 self.done = True
                 reward = 0
-
+        if flag2 == 1:
+            reward-=4
         return self.board, reward, self.done, info
 
     def step2(self, action):
+        flag2 = 0
         if not self.done:
             if(self.show_valid()[action]):
                 self.board[action//3][action%3]=1
             else:
-                print("Invalid Move")
+                # print("Invalid Move by player 2 - {}".format(action))
+                # print(self.board)
+                for i in range(9):
+                    if self.show_valid()[i]:
+                        flag2=1
+                        # print("Valid move was {}".format(i))
+                        self.board[i//3][i%3]=1
+                    break
+
 
         state = self.evaluate()
         if state is 0:
             reward = 0
             self.done = False
-        elif state is 1:
+        if state is 1:
             reward = 1
             self.done = True
-        else:
+        if state is -1:
             reward = -1
             self.done = True
         info = None
@@ -128,6 +147,7 @@ class Board:
             if flag == 0:
                 self.done = True
                 reward = 0
-
+        if flag2 == 1:
+            reward-=4
         return self.board, reward, self.done, info
 
