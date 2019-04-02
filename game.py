@@ -107,8 +107,6 @@ class Board:
             if flag == 0:
                 self.done = True
                 reward = 0
-        if flag2 == 1:
-            reward-=4
         return self.board, reward, self.done, info
 
     def step2(self, action):

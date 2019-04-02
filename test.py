@@ -17,9 +17,9 @@ Transition = namedtuple('Transition',
 
 num_episodes = 10000
 BATCH_SIZE = 128
-GAMMA = 0.999
-EPS_START = 0.95
-EPS_END = 0.05
+GAMMA = 0.98
+EPS_START = 0
+EPS_END = 0
 EPS_DECAY = 8000
 
 class ReplayMemory(object):
@@ -60,7 +60,7 @@ class Agent(object):
         super(Agent, self).__init__()
         self.policy_net = DQN(9, 9).to(device)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
-        self.memory = ReplayMemory(1000)
+        self.memory = ReplayMemory(75000)
         self.steps_done = 0
         self.num_episodes = 60000
         self.BATCH_SIZE = 128
@@ -72,19 +72,10 @@ class Agent(object):
     def select_action(self, state, valid_actions):
         state = torch.tensor([state], device=device, dtype=torch.float32).view(-1)
         valid_actions = torch.tensor([1*valid_actions], device=device, dtype=torch.float32)
-        global steps_done
-        sample = random.random()
-        eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * \
-            math.exp(-1. * self.steps_done / self.EPS_DECAY)
-        self.steps_done += 1
-        if sample > eps_threshold:
-            with torch.no_grad():
-                action = self.policy_net(state)*valid_actions
-                return action.max(1)[1].view(1, 1)
-        else:
-            random_act = torch.tensor(np.random.rand(9), device=device, dtype=torch.float32)
-            random_act = random_act*valid_actions
-            return random_act.max(1)[1].view(1, 1)
+
+        with torch.no_grad():
+            action = self.policy_net(state)*valid_actions
+            return action.max(1)[1].view(1, 1)
 
     def optimize_model(self):
         if len(self.memory) < BATCH_SIZE:
@@ -117,59 +108,49 @@ class Agent(object):
 env = Board()
 done = True
 
-player1 = Agent()
 player2 = Agent()
+model = torch.load("player2.pth")
+player2.policy_net = model
 
-for i in range(num_episodes):
-    state = env.reset()
-    for step in range(5):
-        valid_actions = env.show_valid()
-        action = player1.select_action(state, valid_actions)
-        # print(action)
-        # print(action)
-        next_state, reward, done, info = env.step1(action)
-        if reward is 1:
-            print("Player1 wins match {}".format(i))
+state = env.reset()
+print(state)
+for step in range(5):
+    print("Try your best")
+    action = int(input())
+    next_state, reward, done, info = env.step1(action)
+    print(next_state)
+    if reward is 1:
+        print("Player1 wins")
+        print(state)
+    if done:
+        next_state = None
+    temp = next_state
+    state = next_state
+
+    if done:
+        if reward is 0:
+            print("Match is a draw")
             print(state)
-        if done:
-            next_state = None
-        temp = next_state
-        if not done:
-            temp = torch.tensor([next_state.ravel()], device=device, dtype=torch.float32)
-        player1.memory.push(torch.tensor([state.ravel()], device=device, dtype=torch.float32), action, temp, torch.tensor([reward], device=device))
-        state = next_state
+        break
 
-        if done:
-            if reward is 0:
-                print("Match {} is a draw".format(i))
-                print(state)
-            break
+    valid_actions = env.show_valid()
+    action = player2.select_action(state, valid_actions)
+    print(action)
+    next_state, reward, done, info = env.step2(action)
+    print(state)
+    if reward is 1:
+        print("Player2 wins")
+        print(state)
+    if done:
+        next_state = None
+    temp = next_state
+    if not done:
+        temp = torch.tensor([next_state.ravel()], device=device, dtype=torch.float32)
+    player2.memory.push(torch.tensor([state.ravel()], device=device, dtype=torch.float32), action, temp, torch.tensor([reward], device=device))
+    state = next_state
 
-        valid_actions = env.show_valid()
-        action = player2.select_action(state, valid_actions)
-        # print(action)
-        # print(action)
-        next_state, reward, done, info = env.step2(action)
-        #if reward is 1:
-            #print("Player2 wins match {}".format(i))
-            #print(state)
-        if done:
-            next_state = None
-        temp = next_state
-        if not done:
-            temp = torch.tensor([next_state.ravel()], device=device, dtype=torch.float32)
-        player2.memory.push(torch.tensor([state.ravel()], device=device, dtype=torch.float32), action, temp, torch.tensor([reward], device=device))
-        state = next_state
-
-        if done:
-            if reward is 0:
-                print("Match {} is a draw".format(i))
-                print(state)
-            break
-    player1.optimize_model()
-    player2.optimize_model()
-
-print("Saving model 1")
-torch.save(player1.policy_net, "player1.pth")
-print("Saving model 2")
-torch.save(player2.policy_net, "player2.pth")
+    if done:
+        if reward is 0:
+            print("Match is a draw")
+            print(state)
+        break
