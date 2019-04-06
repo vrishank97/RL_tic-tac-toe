@@ -1,4 +1,4 @@
-from game import Board
+from board import Board
 import math
 import random
 import numpy as np
@@ -15,7 +15,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
-num_episodes = 10000
+num_episodes = 100000
 BATCH_SIZE = 128
 GAMMA = 0.999
 EPS_START = 0.95
@@ -44,9 +44,9 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self, input_size, num_classes):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(input_size, 32)
-        self.fc2 = nn.Linear(32, 16)
-        self.fc3 = nn.Linear(16, num_classes)  
+        self.fc1 = nn.Linear(input_size, 16)
+        self.fc2 = nn.Linear(16, 8)
+        self.fc3 = nn.Linear(8, num_classes)  
     
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -60,11 +60,11 @@ class Agent(object):
         super(Agent, self).__init__()
         self.policy_net = DQN(9, 9).to(device)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
-        self.memory = ReplayMemory(1000)
+        self.memory = ReplayMemory(2000)
         self.steps_done = 0
-        self.num_episodes = 60000
-        self.BATCH_SIZE = 128
-        self.GAMMA = 0.999
+        self.num_episodes = 100000
+        self.BATCH_SIZE = 256
+        self.GAMMA = 0.98
         self.EPS_START = 0.95
         self.EPS_END = 0.05
         self.EPS_DECAY = 1000
@@ -125,12 +125,7 @@ for i in range(num_episodes):
     for step in range(5):
         valid_actions = env.show_valid()
         action = player1.select_action(state, valid_actions)
-        # print(action)
-        # print(action)
-        next_state, reward, done, info = env.step1(action)
-        if reward is 1:
-            print("Player1 wins match {}".format(i))
-            print(state)
+        next_state1, reward1, done, info = env.step1(action)
         if done:
             next_state = None
         temp = next_state
@@ -140,19 +135,11 @@ for i in range(num_episodes):
         state = next_state
 
         if done:
-            if reward is 0:
-                print("Match {} is a draw".format(i))
-                print(state)
             break
 
         valid_actions = env.show_valid()
         action = player2.select_action(state, valid_actions)
-        # print(action)
-        # print(action)
-        next_state, reward, done, info = env.step2(action)
-        #if reward is 1:
-            #print("Player2 wins match {}".format(i))
-            #print(state)
+        next_state2, reward2, done, info = env.step2(action)
         if done:
             next_state = None
         temp = next_state
@@ -162,14 +149,13 @@ for i in range(num_episodes):
         state = next_state
 
         if done:
-            if reward is 0:
-                print("Match {} is a draw".format(i))
-                print(state)
             break
     player1.optimize_model()
     player2.optimize_model()
 
 print("Saving model 1")
 torch.save(player1.policy_net, "player1.pth")
+torch.save(player1.policy_net.state_dict(), "player1dict.pth")
 print("Saving model 2")
 torch.save(player2.policy_net, "player2.pth")
+torch.save(player2.policy_net.state_dict(), "player2dict.pth")

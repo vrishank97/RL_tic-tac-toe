@@ -1,4 +1,4 @@
-from game import Board
+from board import Board
 import math
 import random
 import numpy as np
@@ -146,7 +146,6 @@ for step in range(5):
     temp = next_state
     if not done:
         temp = torch.tensor([next_state.ravel()], device=device, dtype=torch.float32)
-    player2.memory.push(torch.tensor([state.ravel()], device=device, dtype=torch.float32), action, temp, torch.tensor([reward], device=device))
     state = next_state
 
     if done:
